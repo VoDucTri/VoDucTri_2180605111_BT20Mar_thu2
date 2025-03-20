@@ -4,6 +4,16 @@ var router = express.Router();
 let productModel = require('../schemas/product')
 let CategoryModel = require('../schemas/category')
 
+const isMod = (req, res, next) => {
+  if (req.user && req.user.role === 'mod') return next();
+  res.status(403).send({ success: false, message: 'Require Moderator Role' });
+};
+
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') return next();
+  res.status(403).send({ success: false, message: 'Require Admin Role' });
+};
+
 function buildQuery(obj){
   console.log(obj);
   let result = {};
@@ -32,15 +42,13 @@ function buildQuery(obj){
 
 /* GET users listing. */
 router.get('/', async function(req, res, next) {
-  
-
   let products = await productModel.find(buildQuery(req.query)).populate("category");
-
   res.status(200).send({
     success:true,
     data:products
   });
 });
+
 router.get('/:id', async function(req, res, next) {
   try {
     let id = req.params.id;
@@ -57,7 +65,7 @@ router.get('/:id', async function(req, res, next) {
   }
 });
 
-router.post('/', async function(req, res, next) {
+router.post('/', isMod, async function(req, res, next) {
   try {
     let cate = await CategoryModel.findOne({name:req.body.category})
     if(cate){
@@ -85,7 +93,8 @@ router.post('/', async function(req, res, next) {
     });
   }
 });
-router.put('/:id', async function(req, res, next) {
+
+router.put('/:id', isMod, async function(req, res, next) {
   try {
     let updateObj = {};
     let body = req.body;
@@ -103,7 +112,7 @@ router.put('/:id', async function(req, res, next) {
       if(!cate){
         res.status(404).send({
           success:false,
-          message:error.message
+          message:"Category khong ton tai"
         });
       }
     }
@@ -121,7 +130,8 @@ router.put('/:id', async function(req, res, next) {
     });
   }
 });
-router.delete('/:id', async function(req, res, next) {
+
+router.delete('/:id', isAdmin, async function(req, res, next) {
   try {
     let product = await productModel.findById(req.params.id);
     if(product){
@@ -147,4 +157,5 @@ router.delete('/:id', async function(req, res, next) {
     });
   }
 });
+
 module.exports = router;
