@@ -1,73 +1,70 @@
-var express = require('express');
-var router = express.Router();
-let userController = require('../controllers/users')
-var { CreateSuccessRes, CreateErrorRes } = require('../utils/ResHandler')
-let { check_authentication } = require('../utils/check_auth')
-let constants = require('../utils/constants')
+var userSchema = require('../schemas/user')
+var roleController = require('../controllers/roles')
+let bcrypt = require('bcrypt')
 
-const isMod = (req, res, next) => {
-  if (req.user && req.user.role === 'mod') return next();
-  res.status(403).send({ success: false, message: 'Require Moderator Role' });
-};
+module.exports = {
+    GetAllUser: async () => {
+        return await userSchema.find({}).populate('role');
+    },
+    GetUserById: async (id) => {
+        return await userSchema.findById(id).populate('role');
+    },
+    GetUserByEmail: async (email) => {
+        return await userSchema.findOne({
+            email: email
+        }).populate('role');
+    },GetUserByToken: async (token) => {
+        return await userSchema.findOne({
+            tokenResetPassword: token
+        }).populate('role');
+    },
+    CreateAnUser: async (username, password, email, role) => {
+        let GetRole = await roleController.GetRoleByName(role);
+        if (GetRole) {
+            newUser = new userSchema({
+                username: username,
+                password: password,
+                email: email,
+                role: GetRole._id
+            })
+            return await newUser.save();
+        } else {
+            throw new Error("role sai heheeheheh");
+        }
+    },
+    UpdateUser: async function (id, body) {
+        let allowFields = ["password", "email", "imgURL"];
+        let user = await userSchema.findById(id);
+        if (user) {
+            for (const key of Object.keys(body)) {
+                if (allowFields.includes(key)) {
+                    user[key] = body[key]
+                }
+            }
+            return await user.save();
+        }
+    },
+    DeleteUser: async function (id) {
+        let user = await userSchema.findById(id);
+        if (user) {
+            user.status = false;
+            return await user.save();
+        }
+    },
+    Login: async function (username, password) {
+        let user = await userSchema.findOne({
+            username: username
+        })
+        if (!user) {
+            throw new Error("username hoac mat khau khong dung")
+        } else {
+            console.log(bcrypt.compareSync(password, user.password));
+            if (bcrypt.compareSync(password, user.password)) {
+                return user;
+            } else {
+                throw new Error("username hoac mat khau khong dung")
+            }
+        }
 
-const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') return next();
-  res.status(403).send({ success: false, message: 'Require Admin Role' });
-};
-
-/* GET users listing. */
-router.get('/', check_authentication, isMod, async function(req, res, next) {
-  try {
-    let users = await userController.GetAllUser();
-    CreateSuccessRes(res, 200, users);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/:id', check_authentication, async function(req, res, next) {
-  try {
-    if (req.params.id === req.user._id.toString()) {
-      let user = await userController.GetUserById(req.params.id);
-      CreateSuccessRes(res, 200, user);
-    } else {
-      if (req.user.role !== 'mod' && req.user.role !== 'admin') {
-        return res.status(403).send({ success: false, message: 'Require Moderator Role' });
-      }
-      let user = await userController.GetUserById(req.params.id);
-      CreateSuccessRes(res, 200, user);
     }
-  } catch (error) {
-    CreateErrorRes(res, 404, error);
-  }
-});
-
-router.post('/', check_authentication, isAdmin, async function(req, res, next) {
-  try {
-    let body = req.body;
-    let newUser = await userController.CreateAnUser(body.username, body.password, body.email, body.role);
-    CreateSuccessRes(res, 200, newUser);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.put('/:id', check_authentication, isAdmin, async function(req, res, next) {
-  try {
-    let updateUser = await userController.UpdateUser(req.params.id, req.body);
-    CreateSuccessRes(res, 200, updateUser);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.delete('/:id', check_authentication, isAdmin, async function(req, res, next) {
-  try {
-    let deletedUser = await userController.DeleteUser(req.params.id);
-    CreateSuccessRes(res, 200, deletedUser);
-  } catch (error) {
-    next(error);
-  }
-});
-
-module.exports = router;
+}

@@ -1,99 +1,51 @@
+var createError = require('http-errors');
 var express = require('express');
-var router = express.Router();
-let categoryModel = require('../schemas/category')
+var path = require('path');
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
+var mongoose = require('mongoose')
+var {CreateErrorRes} = require('./utils/ResHandler')
 
-const isMod = (req, res, next) => {
-  if (req.user && req.user.role === 'mod') return next();
-  res.status(403).send({ success: false, message: 'Require Moderator Role' });
-};
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
 
-const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') return next();
-  res.status(403).send({ success: false, message: 'Require Admin Role' });
-};
+var app = express();
 
-/* GET users listing. */
-router.get('/', async function(req, res, next) {
-  let categories = await categoryModel.find({});
-  res.status(200).send({
-    success:true,
-    data:categories
-  });
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'pug');
+
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+app.use('/roles', require('./routes/roles'));
+app.use('/auth', require('./routes/auth'));
+app.use('/products', require('./routes/products'));
+app.use('/categories', require('./routes/categories'));
+//
+mongoose.connect('mongodb://localhost:27017/C5');
+mongoose.connection.on('connected',function(){
+  console.log("connected");
+})
+
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  next(createError(404));
 });
 
-router.get('/:id', async function(req, res, next) {
-  try {
-    let id = req.params.id;
-    let category = await categoryModel.findById(id);
-    res.status(200).send({
-      success:true,
-      data:category
-    });
-  } catch (error) {
-    res.status(404).send({
-      success:false,
-      message:"khong co id phu hop"
-    });
-  }
+// error handler
+app.use(function(err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+  // render the error page
+  CreateErrorRes(res,err.status||500,err)
 });
 
-router.post('/', isMod, async function(req, res, next) {
-  try {
-    let newCategory = new categoryModel({
-      name: req.body.name,
-    })
-    await newCategory.save();
-    res.status(200).send({
-      success:true,
-      data:newCategory
-    });
-  } catch (error) {
-    res.status(404).send({
-      success:false,
-      message:error.message
-    });
-  }
-});
-
-router.put('/:id', isMod, async function(req, res, next) {
-  try {
-    let updatedCategory = await categoryModel.findByIdAndUpdate(
-      req.params.id,
-      { name: req.body.name },
-      { new: true }
-    );
-    res.status(200).send({
-      success: true,
-      data: updatedCategory
-    });
-  } catch (error) {
-    res.status(404).send({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-router.delete('/:id', isAdmin, async function(req, res, next) {
-  try {
-    let category = await categoryModel.findByIdAndDelete(req.params.id);
-    if (category) {
-      res.status(200).send({
-        success: true,
-        data: category
-      });
-    } else {
-      res.status(404).send({
-        success: false,
-        message: "ID khong ton tai"
-      });
-    }
-  } catch (error) {
-    res.status(404).send({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-module.exports = router;
+module.exports = app;

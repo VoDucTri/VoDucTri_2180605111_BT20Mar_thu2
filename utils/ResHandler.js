@@ -1,14 +1,21 @@
-module.exports={
-    CreateSuccessRes: function(res,statusCode,data){
-        return res.status(statusCode).send({
-            success:true,
-            data:data
-          })
-    },
-    CreateErrorRes: function(res,statusCode,error){
-        return res.status(statusCode).send({
-            success:false,
-            message:error.message
-          })
+// utils/ResHandler.js
+class ResHandler {
+    static CreateSuccessRes(res, statusCode, data, message = 'Success') {
+        return res.status(statusCode).json({
+            success: true,
+            message,
+            data
+        });
+    }
+
+    static CreateErrorRes(res, statusCode, err) {
+        return res.status(statusCode).json({
+            success: false,
+            status: statusCode,
+            message: err.message || 'An unexpected error occurred',
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
     }
 }
+
+module.exports = ResHandler;

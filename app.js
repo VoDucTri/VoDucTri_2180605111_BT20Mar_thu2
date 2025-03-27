@@ -3,11 +3,15 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-var mongoose = require('mongoose')
-var {CreateErrorRes} = require('./utils/ResHandler')
+var mongoose = require('mongoose');
+var ResHandler = require('./utils/ResHandler');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+var rolesRouter = require('./routes/roles');
+var authRouter = require('./routes/auth');
+var productsRouter = require('./routes/products');
+var categoriesRouter = require('./routes/categories');
 
 var app = express();
 
@@ -23,29 +27,37 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-app.use('/roles', require('./routes/roles'));
-app.use('/auth', require('./routes/auth'));
-app.use('/products', require('./routes/products'));
-app.use('/categories', require('./routes/categories'));
-//
-mongoose.connect('mongodb://localhost:27017/C5');
-mongoose.connection.on('connected',function(){
-  console.log("connected");
-})
+app.use('/roles', rolesRouter);
+app.use('/auth', authRouter);
+app.use('/products', productsRouter);
+app.use('/categories', categoriesRouter);
+
+// Kết nối MongoDB
+mongoose.connect('mongodb://localhost:27017/C5', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+mongoose.connection.on('connected', function(){
+    console.log("Connected to MongoDB");
+});
+
+mongoose.connection.on('error', function(err){
+    console.error("MongoDB connection error:", err);
+});
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  next(createError(404));
+    next(createError(404));
 });
 
 // error handler
 app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+    res.locals.message = err.message;
+    res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  // render the error page
-  CreateErrorRes(res,err.status||500,err)
+    // render the error page
+    ResHandler.CreateErrorRes(res, err.status || 500, err);
 });
 
 module.exports = app;
